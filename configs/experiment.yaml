@@ -1,0 +1,62 @@
+experiment:
+  id: "customer-support-qwen-v1"        # unique name, used as folder name
+  use_case: >
+    Finetune a model to handle customer support conversations
+    for a SaaS product. The model should be empathetic, resolve
+    issues efficiently, and gracefully decline out of scope requests.
+
+dataset:
+  path: "./data/customer_support.jsonl"
+  format: "sharegpt"                     # sharegpt | alpaca | raw | custom
+  language: "en"
+
+base_model:
+  name: "Qwen/Qwen2.5-7B-Instruct"
+  trust_remote_code: true
+
+training:
+  mode: "lora"                           # lora | qlora | full
+  max_runs: 20
+  budget_hours: 48                       # stop after this many hours total
+
+hyperparameter_space:
+  learning_rate:
+    min: 1e-5
+    max: 5e-4
+  lora_rank:
+    values: [8, 16, 32, 64]
+  lora_alpha:
+    values: [16, 32, 64]
+  batch_size:
+    values: [4, 8, 16]
+  gradient_accumulation:
+    values: [2, 4, 8]
+  warmup_ratio:
+    min: 0.01
+    max: 0.15
+  epochs:
+    min: 1
+    max: 5
+  scheduler:
+    values: ["cosine", "linear", "constant_with_warmup"]
+
+eval:
+  benchmark: "auto"                      # auto | custom | path/to/benchmark.jsonl
+  primary_metric: "conversation_quality" # what to optimize for
+  eval_every_n_steps: 200
+  judge_model: "anthropic/claude-sonnet-4"
+
+agents:
+  strategist: "anthropic/claude-opus-4-5"
+  data_agent: "groq/llama-3.1-70b-versatile"
+  monitor: "ollama/qwen2.5:7b"
+  evaluator: "anthropic/claude-sonnet-4-5"
+
+storage:
+  base_path: "./experiments"
+  save_top_k_checkpoints: 3              # keep only top 3 checkpoints per run
+
+early_stopping:
+  enabled: true
+  patience_steps: 400                    # stop if no improvement for this many steps
+  min_improvement: 0.01                  # minimum delta to count as improvement

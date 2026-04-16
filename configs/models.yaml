@@ -1,0 +1,48 @@
+models:
+  "Qwen/Qwen2.5-7B-Instruct":
+    family: "qwen2.5"
+    chat_template: "chatml"
+    lora_target_modules:
+      - "q_proj"
+      - "k_proj"
+      - "v_proj"
+      - "o_proj"
+      - "gate_proj"
+      - "up_proj"
+      - "down_proj"
+    max_sequence_length: 32768
+    recommended_batch_size: 4
+    fp16: false
+    bf16: true
+
+  "meta-llama/Llama-3.1-8B-Instruct":
+    family: "llama3"
+    chat_template: "llama3"
+    lora_target_modules:
+      - "q_proj"
+      - "k_proj"
+      - "v_proj"
+      - "o_proj"
+      - "gate_proj"
+      - "up_proj"
+      - "down_proj"
+    max_sequence_length: 131072
+    recommended_batch_size: 4
+    fp16: false
+    bf16: true
+
+  "mistralai/Mistral-7B-Instruct-v0.3":
+    family: "mistral"
+    chat_template: "mistral"
+    lora_target_modules:
+      - "q_proj"
+      - "k_proj"
+      - "v_proj"
+      - "o_proj"
+      - "gate_proj"
+      - "up_proj"
+      - "down_proj"
+    max_sequence_length: 32768
+    recommended_batch_size: 4
+    fp16: false
+    bf16: true

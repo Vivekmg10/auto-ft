@@ -1,0 +1,75 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "autofinetune"
+version = "0.1.0"
+description = "Autonomous finetuning agent with hyperparameter search and benchmarking"
+requires-python = ">=3.11"
+dependencies = [
+    # LLM
+    "litellm>=1.40.0",
+
+    # Agent orchestration
+    "langgraph>=0.2.0",
+    "langchain-core>=0.2.0",
+
+    # Training
+    "torch>=2.3.0",
+    "transformers>=4.44.0",
+    "peft>=0.12.0",
+    "trl>=0.10.0",
+    "accelerate>=0.33.0",
+    "bitsandbytes>=0.43.0",
+    "datasets>=2.20.0",
+    "tokenizers>=0.19.0",
+
+    # Eval
+    "lm-eval>=0.4.0",
+    "rouge-score>=0.1.2",
+    "sacrebleu>=2.4.0",
+
+    # Storage / DB
+    "sqlmodel>=0.0.21",
+    "sqlalchemy>=2.0.0",
+
+    # Config
+    "pyyaml>=6.0",
+    "pydantic>=2.8.0",
+    "pydantic-settings>=2.4.0",
+    "python-dotenv>=1.0.0",
+
+    # CLI + TUI
+    "typer>=0.12.0",
+    "textual>=0.75.0",
+    "rich>=13.8.0",
+
+    # Utils
+    "numpy>=1.26.0",
+    "pandas>=2.2.0",
+    "tqdm>=4.66.0",
+    "loguru>=0.7.0",
+    "tenacity>=8.5.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "ruff>=0.6.0",
+    "mypy>=1.11.0",
+]
+
+[project.scripts]
+autofinetune = "autofinetune.cli.main:app"
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

@@ -1,0 +1,58 @@
+default_space:
+  learning_rate:
+    type: "log_uniform"
+    min: 1e-5
+    max: 5e-4
+    
+  lora_rank:
+    type: "categorical"
+    values: [8, 16, 32, 64]
+
+  lora_alpha:
+    type: "categorical"
+    values: [16, 32, 64, 128]
+
+  lora_dropout:
+    type: "uniform"
+    min: 0.0
+    max: 0.1
+
+  batch_size:
+    type: "categorical"
+    values: [4, 8, 16]
+
+  gradient_accumulation:
+    type: "categorical"
+    values: [2, 4, 8]
+
+  warmup_ratio:
+    type: "uniform"
+    min: 0.01
+    max: 0.15
+
+  weight_decay:
+    type: "log_uniform"
+    min: 1e-4
+    max: 1e-1
+
+  epochs:
+    type: "int_uniform"
+    min: 1
+    max: 5
+
+  scheduler:
+    type: "categorical"
+    values:
+      - "cosine"
+      - "linear"
+      - "constant_with_warmup"
+      - "cosine_with_restarts"
+
+  max_grad_norm:
+    type: "categorical"
+    values: [0.3, 0.5, 1.0]
+
+exploration:
+  initial_strategy: "random"            # first 3 runs are random to seed the space
+  main_strategy: "llm_guided"           # after that, Strategist proposes
+  explore_ratio: 0.3                    # 30% exploration, 70% exploitation
