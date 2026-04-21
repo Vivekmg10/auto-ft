@@ -170,3 +170,57 @@ def _extract_prompt(example: dict, tokenizer: AutoTokenizer) -> str:
 
 def _batch(items: list, size: int) -> list[list]:
     return [items[i:i + size] for i in range(0, len(items), size)]
+
+
+def evaluate_with_judge(
+    checkpoint_path: str,
+    benchmark_path: str,
+    base_model: str,
+    judge_model: str,
+    use_case: str,
+) -> dict:
+    """
+    Full eval pipeline:
+    1. Load checkpoint
+    2. Run on benchmark
+    3. Score with LLM judge
+    4. Return aggregated report
+    """
+    import jsonlines
+    from autofinetune.eval.judge import LLMJudge
+
+    # load benchmark
+    examples = []
+    with jsonlines.open(benchmark_path) as reader:
+        for item in reader:
+            examples.append(item)
+
+    examples = examples[:50]  # cap at 50
+
+    # run model
+    logger.info(f"Running {len(examples)} benchmark examples...")
+    outputs = run_checkpoint_on_examples(
+        checkpoint_path=checkpoint_path,
+        examples=examples,
+        base_model=base_model,
+    )
+
+    # score with judge
+    logger.info("Scoring with LLM judge...")
+    judge = LLMJudge(model=judge_model)
+    scored = judge.score_batch(
+        examples=examples,
+        outputs=outputs,
+        use_case=use_case,
+    )
+
+    # attach inputs and outputs to scored results for report
+    for i, score in enumerate(scored):
+        score["input"] = examples[i].get("input", "")[:200]
+        score["output"] = outputs[i][:200]
+
+    # aggregate
+    report = judge.aggregate_scores(scored)
+    report["n_examples"] = len(examples)
+
+    return report
