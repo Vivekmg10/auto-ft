@@ -2,6 +2,7 @@ from pathlib import Path
 from datetime import datetime
 import json
 import shutil
+from loguru import logger
 from autofinetune.graph.state import ExperimentState, RunResult
 
 
@@ -26,36 +27,47 @@ class LocalStorage:
 
     def save_state(self, state: ExperimentState):
         path = self.experiment_dir(state.experiment_id) / "state.json"
-        path.write_text(state.model_dump_json(indent=2))
+        try:
+            path.write_text(state.model_dump_json(indent=2))
+        except OSError as e:
+            logger.error(f"Failed to save state for {state.experiment_id}: {e}")
+            raise
 
     def load_state(self, experiment_id: str) -> ExperimentState | None:
         path = self.experiment_dir(experiment_id) / "state.json"
         if not path.exists():
             return None
-        return ExperimentState.model_validate_json(path.read_text())
+        try:
+            return ExperimentState.model_validate_json(path.read_text())
+        except (OSError, ValueError) as e:
+            logger.error(f"Failed to load state for {experiment_id}: {e}")
+            return None
 
     def save_run(self, experiment_id: str, run: RunResult):
         run_path = self.run_dir(experiment_id, run.run_id)
-        run_path.mkdir(parents=True, exist_ok=True)
-
-        (run_path / "config.json").write_text(
-            json.dumps(run.config.model_dump(), indent=2)
-        )
-        (run_path / "results.json").write_text(
-            json.dumps({
-                "run_id": run.run_id,
-                "eval_score": run.eval_score,
-                "eval_breakdown": run.eval_breakdown,
-                "status": run.status,
-                "training_report": run.training_report
-            }, indent=2)
-        )
-        (run_path / "hypothesis.json").write_text(
-            json.dumps({"hypothesis": run.hypothesis}, indent=2)
-        )
-        (run_path / "loss_curve.json").write_text(
-            json.dumps(run.loss_curve, indent=2)
-        )
+        try:
+            run_path.mkdir(parents=True, exist_ok=True)
+            (run_path / "config.json").write_text(
+                json.dumps(run.config.model_dump(), indent=2)
+            )
+            (run_path / "results.json").write_text(
+                json.dumps({
+                    "run_id": run.run_id,
+                    "eval_score": run.eval_score,
+                    "eval_breakdown": run.eval_breakdown,
+                    "status": run.status,
+                    "training_report": run.training_report
+                }, indent=2)
+            )
+            (run_path / "hypothesis.json").write_text(
+                json.dumps({"hypothesis": run.hypothesis}, indent=2)
+            )
+            (run_path / "loss_curve.json").write_text(
+                json.dumps(run.loss_curve, indent=2)
+            )
+        except OSError as e:
+            logger.error(f"Failed to save run {run.run_id}: {e}")
+            raise
 
     def update_leaderboard(self, experiment_id: str, state: ExperimentState):
         completed = [r for r in state.all_runs if r.status == "completed"]
@@ -73,19 +85,35 @@ class LocalStorage:
         ]
 
         path = self.experiment_dir(experiment_id) / "leaderboard.json"
-        path.write_text(json.dumps(leaderboard, indent=2))
+        try:
+            path.write_text(json.dumps(leaderboard, indent=2))
+        except OSError as e:
+            logger.error(f"Failed to update leaderboard for {experiment_id}: {e}")
+            raise
 
     def save_journal_entry(self, experiment_id: str, run_id: str, entry: str):
         path = self.experiment_dir(experiment_id) / "journal" / f"{run_id}.md"
-        path.write_text(entry)
+        try:
+            path.write_text(entry)
+        except OSError as e:
+            logger.error(f"Failed to save journal entry for run {run_id}: {e}")
+            raise
 
     def save_summary(self, experiment_id: str, summary: str):
         path = self.experiment_dir(experiment_id) / "journal" / "summary.md"
-        path.write_text(summary)
+        try:
+            path.write_text(summary)
+        except OSError as e:
+            logger.error(f"Failed to save summary for {experiment_id}: {e}")
+            raise
 
     def save_report(self, experiment_id: str, report: str):
         path = self.experiment_dir(experiment_id) / "report.md"
-        path.write_text(report)
+        try:
+            path.write_text(report)
+        except OSError as e:
+            logger.error(f"Failed to save report for {experiment_id}: {e}")
+            raise
 
     def checkpoint_dir(self, experiment_id: str, run_id: str) -> Path:
         return self.run_dir(experiment_id, run_id) / "checkpoint"

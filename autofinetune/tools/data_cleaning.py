@@ -196,8 +196,9 @@ def fix_formatting(dataset_path: str, output_path: str) -> dict:
     fixed_count = 0
 
     with open(dataset_path, "r", encoding="utf-8", errors="replace") as f:
+        line_num = 0
         for line_num, line in enumerate(f, 1):
-            line = line.strip()
+            line = line.strip() 
             if not line:
                 continue
 

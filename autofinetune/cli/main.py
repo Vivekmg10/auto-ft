@@ -108,12 +108,11 @@ def run(
             node_name = list(event.keys())[0]
             rprint(f"[dim]→ {node_name}[/dim]")
 
-            # save state after every node
+            # save state after every node using in-memory state to avoid stale disk reads
             updated = event[node_name]
             if updated:
-                current_state = storage.load_state(cfg.id) or state
-                merged = current_state.model_copy(update=updated)
-                storage.save_state(merged)
+                state = state.model_copy(update=updated)
+                storage.save_state(state)
 
     except KeyboardInterrupt:
         rprint("\n[yellow]Experiment paused. Run with --resume to continue.[/yellow]")

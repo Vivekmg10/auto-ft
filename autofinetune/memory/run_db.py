@@ -42,7 +42,11 @@ class RunDatabase:
     def get_leaderboard(self) -> list[dict]:
         if not self.leaderboard_path.exists():
             return []
-        return json.loads(self.leaderboard_path.read_text())
+        try:
+            return json.loads(self.leaderboard_path.read_text())
+        except (json.JSONDecodeError, OSError) as e:
+            logger.warning(f"Failed to load leaderboard: {e}")
+            return []
 
     def query(
         self,
