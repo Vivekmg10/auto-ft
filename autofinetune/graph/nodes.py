@@ -158,12 +158,12 @@ def eval_node(state: ExperimentState, config: ExperimentConfig, evaluator, stora
     current_run = _get_current_run(state)
 
     if current_run.status == "failed":
-    logger.warning("Skipping eval — training failed")
-    return {"current_phase": "update"}
+        logger.warning("Skipping eval — training failed")
+        return {"current_phase": "update"}
 
     if not current_run.best_checkpoint_path:
-    logger.warning("Skipping eval — no checkpoint path available")
-    return {"current_phase": "update"}
+        logger.warning("Skipping eval — no checkpoint path available")
+        return {"current_phase": "update"}
 
     eval_report = evaluator.run(
         task="Evaluate this finetuned checkpoint",
