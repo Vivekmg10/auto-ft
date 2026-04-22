@@ -1,6 +1,6 @@
 import json
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Callable
 from loguru import logger
 from litellm import completion
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -18,7 +18,7 @@ class BaseAgent(ABC):
         self.model = model
         self.system_prompt = system_prompt
         self.tools = tools or []
-        self.tool_registry: dict[str, callable] = {}
+        self.tool_registry: dict[str, Callable] = {}
         self.max_iterations = max_iterations
         self.temperature = temperature
 

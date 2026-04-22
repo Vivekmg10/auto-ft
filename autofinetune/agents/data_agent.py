@@ -1,3 +1,4 @@
+import re
 from loguru import logger
 from autofinetune.agents.base import BaseAgent
 from autofinetune.tools.schemas import DATA_TOOLS
@@ -117,9 +118,16 @@ Return when you have:
         }
 
     def _extract_path(self, content: str, keyword: str) -> str | None:
-        pattern = rf"[\w./\-_]*{keyword}[\w./\-_]*\.jsonl"
-        match = re.search(pattern, content, re.IGNORECASE)
-        return match.group(0) if match else None
+        patterns = [
+            rf"[\w./\-_]*{keyword}[\w./\-_]*\.jsonl",   # path containing keyword
+            r"['\"]([^'\"]+\.jsonl)['\"]",               # quoted .jsonl path
+            r"(?:saved?|written?|output)[^\n]*?([^\s]+\.jsonl)",  # "saved to X.jsonl"
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, content, re.IGNORECASE)
+            if match:
+                return match.group(1) if match.lastindex else match.group(0)
+        return None
 
     def _extract_quality_score(self, content: str) -> float:
         import re

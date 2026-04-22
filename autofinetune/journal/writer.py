@@ -63,7 +63,7 @@ Write the journal entry now.
         entry = f"""# Run {run_number}: {run_id}{is_best_badge}
 **Date**: {timestamp}
 **Status**: {run.status.upper()}
-**Score**: {run.eval_score:.4f if run.eval_score else 'N/A'}
+**Score**: {'N/A' if run.eval_score is None else f'{run.eval_score:.4f}'}
 **Config**: lr={run.config.learning_rate} | rank={run.config.lora_rank} | epochs={run.config.epochs} | scheduler={run.config.scheduler}
 
 ---

@@ -141,9 +141,9 @@ class LLMJudge:
 
         for dim, score in breakdown.items():
             if score >= 0.8:
-                strengths.append(f"{dim.replace('_', ' ').title()} ({score:.2f})")
+                strengths.append(f"{dim.replace('_', ' ').title()[:40]} ({score:.2f})")
             elif score < 0.6:
-                weaknesses.append(f"{dim.replace('_', ' ').title()} ({score:.2f})")
+                weaknesses.append(f"{dim.replace('_', ' ').title()[:40]} ({score:.2f})")
 
         # find worst examples for the report
         worst = sorted(
