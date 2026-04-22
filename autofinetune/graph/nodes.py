@@ -132,10 +132,12 @@ def training_node(state: ExperimentState, config: ExperimentConfig, monitor, sto
     storage.save_run(state.experiment_id, current_run)
 
     if training_report.get("failed"):
-        logger.warning(f"Training failed: {training_report.get('failure_reason')}")
+        reason = training_report.get("failure_reason") or "unknown failure — check training logs"
+        logger.warning(f"Training failed: {reason}")
+        failed_run = current_run.model_copy(update={"failure_reason": reason})
         return {
             "current_phase": "update",
-            "all_runs": state.all_runs + [current_run],
+            "all_runs": state.all_runs + [failed_run],
         }
 
     logger.info(f"Training complete. Best checkpoint: {training_report.get('best_checkpoint_path')}")

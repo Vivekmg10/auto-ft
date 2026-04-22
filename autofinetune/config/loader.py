@@ -98,4 +98,41 @@ def load_config(path: str) -> ExperimentConfig:
     experiment_data["storage"] = raw.get("storage", {})
     experiment_data["early_stopping"] = raw.get("early_stopping", {})
 
-    return ExperimentConfig(**experiment_data)
+    cfg = ExperimentConfig(**experiment_data)
+    _validate_config(cfg)
+    return cfg
+
+
+def _validate_config(cfg: ExperimentConfig) -> None:
+    errors = []
+
+    if not Path(cfg.dataset.path).exists():
+        errors.append(f"dataset.path does not exist: {cfg.dataset.path!r}")
+
+    if cfg.hyperparameter_space:
+        hp = cfg.hyperparameter_space
+        if hp.learning_rate.min >= hp.learning_rate.max:
+            errors.append(
+                f"hyperparameter_space.learning_rate: min ({hp.learning_rate.min}) "
+                f"must be less than max ({hp.learning_rate.max})"
+            )
+        if hp.epochs.min >= hp.epochs.max:
+            errors.append(
+                f"hyperparameter_space.epochs: min ({hp.epochs.min}) "
+                f"must be less than max ({hp.epochs.max})"
+            )
+        if hp.warmup_ratio.min >= hp.warmup_ratio.max:
+            errors.append(
+                f"hyperparameter_space.warmup_ratio: min ({hp.warmup_ratio.min}) "
+                f"must be less than max ({hp.warmup_ratio.max})"
+            )
+        if not hp.lora_rank.values:
+            errors.append("hyperparameter_space.lora_rank.values must not be empty")
+        if not hp.scheduler.values:
+            errors.append("hyperparameter_space.scheduler.values must not be empty")
+
+    if cfg.training.max_runs < 1:
+        errors.append(f"training.max_runs must be >= 1, got {cfg.training.max_runs}")
+
+    if errors:
+        raise ValueError("Invalid config:\n" + "\n".join(f"  - {e}" for e in errors))

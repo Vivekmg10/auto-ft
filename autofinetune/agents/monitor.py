@@ -123,6 +123,12 @@ class TrainingMonitor(BaseAgent):
         if not eval_losses:
             return False
 
+        # NaN/Inf means training is broken — stop immediately
+        import math
+        if any(math.isnan(loss) or math.isinf(loss) for loss in eval_losses):
+            logger.error("NaN or Inf detected in loss curve — stopping training immediately")
+            return True
+
         # divergence check
         recent = eval_losses[-5:]
         if all(recent[i] < recent[i+1] for i in range(len(recent)-1)):

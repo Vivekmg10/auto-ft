@@ -14,9 +14,11 @@ def build_lora_config(
     run_config: RunConfig | None = None,
     target_modules: list[str] | None = None,
 ) -> LoraConfig:
-    rank = run_config.lora_rank if run_config else 16
-    alpha = run_config.lora_alpha if run_config else 32
-    dropout = run_config.lora_dropout if run_config else 0.05
+    rank = (run_config.lora_rank if run_config and run_config.lora_rank else None) or 16
+    alpha = (run_config.lora_alpha if run_config and run_config.lora_alpha else None) or 32
+    dropout = (run_config.lora_dropout if run_config and run_config.lora_dropout is not None else None)
+    if dropout is None:
+        dropout = 0.05
 
     return LoraConfig(
         task_type=TaskType.CAUSAL_LM,

@@ -1,4 +1,5 @@
 import os
+import time
 import torch
 from pathlib import Path
 from typing import Generator
@@ -96,12 +97,17 @@ def launch_training(
     thread = threading.Thread(target=run_trainer, daemon=True)
     thread.start()
 
-    # yield updates as they come in
+    # yield updates as they come in; fail-fast on error; cap at 24h
     last_yielded = 0
+    deadline = time.monotonic() + 86400
     while thread.is_alive() or last_yielded < len(updates):
+        if training_error[0]:
+            raise training_error[0]
         while last_yielded < len(updates):
             yield updates[last_yielded]
             last_yielded += 1
+        if time.monotonic() > deadline:
+            raise TimeoutError(f"Training run {run_id} exceeded 24-hour limit")
         thread.join(timeout=2.0)
 
     if training_error[0]:

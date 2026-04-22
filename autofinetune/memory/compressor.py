@@ -147,15 +147,19 @@ RUNS:
         for run in runs:
             score_str = f"{run.eval_score:.4f}" if run.eval_score else "N/A"
             status_str = run.status.upper()
+            hypothesis = run.hypothesis[:200] + "..." if len(run.hypothesis) > 200 else run.hypothesis
+            breakdown_str = json.dumps(run.eval_breakdown)
+            if len(breakdown_str) > 300:
+                breakdown_str = breakdown_str[:300] + "..."
 
             lines.append(
                 f"[{run.run_id}] {status_str} | score={score_str}\n"
-                f"  Hypothesis: {run.hypothesis}\n"
+                f"  Hypothesis: {hypothesis}\n"
                 f"  Config: lr={run.config.learning_rate}, "
                 f"rank={run.config.lora_rank}, "
                 f"epochs={run.config.epochs}, "
                 f"scheduler={run.config.scheduler}\n"
-                f"  Breakdown: {json.dumps(run.eval_breakdown)}\n"
+                f"  Breakdown: {breakdown_str}\n"
                 + (f"  Failed: {run.failure_reason}\n" if run.failure_reason else "")
             )
 

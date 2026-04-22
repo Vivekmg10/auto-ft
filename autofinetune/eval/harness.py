@@ -16,27 +16,32 @@ def run_checkpoint_on_examples(
     Loads a finetuned checkpoint and runs it on benchmark examples.
     Returns a list of model outputs in the same order as examples.
     """
+    if not examples:
+        logger.warning("run_checkpoint_on_examples called with empty examples list — returning []")
+        return []
+
     logger.info(f"Loading checkpoint: {checkpoint_path}")
 
     tokenizer = _load_tokenizer(checkpoint_path, base_model)
     model = _load_model(checkpoint_path, base_model)
 
-    outputs = []
-    batches = _batch(examples, batch_size)
+    try:
+        outputs = []
+        batches = _batch(examples, batch_size)
 
-    for i, batch in enumerate(batches):
-        logger.debug(f"Running batch {i + 1}/{len(batches)}")
-        batch_outputs = _run_batch(
-            model=model,
-            tokenizer=tokenizer,
-            examples=batch,
-            max_new_tokens=max_new_tokens,
-        )
-        outputs.extend(batch_outputs)
-
-    # clean up — free VRAM before training starts
-    del model
-    torch.cuda.empty_cache()
+        for i, batch in enumerate(batches):
+            logger.debug(f"Running batch {i + 1}/{len(batches)}")
+            batch_outputs = _run_batch(
+                model=model,
+                tokenizer=tokenizer,
+                examples=batch,
+                max_new_tokens=max_new_tokens,
+            )
+            outputs.extend(batch_outputs)
+    finally:
+        # free VRAM even if evaluation crashes
+        del model
+        torch.cuda.empty_cache()
 
     logger.info(f"Ran {len(outputs)} examples through checkpoint")
     return outputs
