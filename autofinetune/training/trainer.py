@@ -1,23 +1,11 @@
 import os
 import time
-import torch
+import threading
 from pathlib import Path
 from typing import Generator
 from loguru import logger
-from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer,
-    TrainingArguments,
-    TrainerCallback,
-    TrainerState,
-    TrainerControl,
-)
-from datasets import load_dataset
-from trl import SFTTrainer
-from peft import get_peft_model, LoraConfig, TaskType, prepare_model_for_kbit_training
 
 from autofinetune.graph.state import RunConfig
-from autofinetune.training.peft_config import build_lora_config, build_qlora_config
 
 
 def launch_training(
@@ -33,6 +21,10 @@ def launch_training(
     Each update is a dict with step, train_loss, eval_loss, checkpoint_path.
     The monitor iterates over these updates to watch the run.
     """
+    import datasets  # must be imported before transformers.Trainer to avoid pyarrow DLL conflict on Windows
+    from transformers import TrainerCallback, TrainerState, TrainerControl
+    from trl import SFTTrainer
+
     logger.info(f"Launching training | mode={training_mode} | model={base_model}")
 
     Path(checkpoint_dir).mkdir(parents=True, exist_ok=True)
@@ -40,24 +32,19 @@ def launch_training(
     tokenizer = _load_tokenizer(base_model)
     model = _load_model(base_model, training_mode)
     dataset = _load_dataset(dataset_path, tokenizer)
-    training_args = _build_training_args(config, checkpoint_dir, dataset)
+    training_args = _build_training_args(config, checkpoint_dir)
 
-    # shared update queue between trainer callback and this generator
     updates = []
 
     class ProgressCallback(TrainerCallback):
         def on_evaluate(self, args, state: TrainerState, control: TrainerControl, metrics, **kwargs):
-            update = {
+            updates.append({
                 "step": state.global_step,
                 "train_loss": metrics.get("train_loss"),
                 "eval_loss": metrics.get("eval_loss"),
                 "epoch": state.epoch,
-                "checkpoint_path": os.path.join(
-                    checkpoint_dir,
-                    f"checkpoint-{state.global_step}"
-                ),
-            }
-            updates.append(update)
+                "checkpoint_path": os.path.join(checkpoint_dir, f"checkpoint-{state.global_step}"),
+            })
             logger.debug(f"Step {state.global_step} | eval_loss={metrics.get('eval_loss', 'N/A'):.4f}")
 
         def on_log(self, args, state: TrainerState, control: TrainerControl, logs, **kwargs):
@@ -80,9 +67,6 @@ def launch_training(
         max_seq_length=2048,
     )
 
-    # run training in a thread so we can yield updates
-    import threading
-
     training_error = [None]
 
     def run_trainer():
@@ -97,7 +81,6 @@ def launch_training(
     thread = threading.Thread(target=run_trainer, daemon=True)
     thread.start()
 
-    # yield updates as they come in; fail-fast on error; cap at 24h
     last_yielded = 0
     deadline = time.monotonic() + 86400
     while thread.is_alive() or last_yielded < len(updates):
@@ -109,6 +92,7 @@ def launch_training(
         if time.monotonic() > deadline:
             raise TimeoutError(f"Training run {run_id} exceeded 24-hour limit")
         thread.join(timeout=2.0)
+        time.sleep(0.5)
 
     if training_error[0]:
         raise training_error[0]
@@ -116,18 +100,21 @@ def launch_training(
     logger.info(f"Training complete for {run_id}")
 
 
-def _load_tokenizer(base_model: str) -> AutoTokenizer:
-    tokenizer = AutoTokenizer.from_pretrained(
-        base_model,
-        trust_remote_code=True,
-    )
+def _load_tokenizer(base_model: str):
+    from transformers import AutoTokenizer
+    tokenizer = AutoTokenizer.from_pretrained(base_model, trust_remote_code=True)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
-    tokenizer.padding_side = "right"  # right padding for training
+    tokenizer.padding_side = "right"
     return tokenizer
 
 
-def _load_model(base_model: str, training_mode: str) -> AutoModelForCausalLM:
+def _load_model(base_model: str, training_mode: str):
+    import torch
+    from transformers import AutoModelForCausalLM
+    from peft import get_peft_model, prepare_model_for_kbit_training
+    from autofinetune.training.peft_config import build_lora_config, build_qlora_config
+
     if training_mode == "qlora":
         from transformers import BitsAndBytesConfig
         bnb_config = BitsAndBytesConfig(
@@ -143,8 +130,7 @@ def _load_model(base_model: str, training_mode: str) -> AutoModelForCausalLM:
             trust_remote_code=True,
         )
         model = prepare_model_for_kbit_training(model)
-        lora_cfg = build_qlora_config()
-        model = get_peft_model(model, lora_cfg)
+        model = get_peft_model(model, build_qlora_config())
 
     elif training_mode == "lora":
         model = AutoModelForCausalLM.from_pretrained(
@@ -153,10 +139,9 @@ def _load_model(base_model: str, training_mode: str) -> AutoModelForCausalLM:
             device_map="auto",
             trust_remote_code=True,
         )
-        lora_cfg = build_lora_config()
-        model = get_peft_model(model, lora_cfg)
+        model = get_peft_model(model, build_lora_config())
 
-    else:  # full finetuning
+    else:
         model = AutoModelForCausalLM.from_pretrained(
             base_model,
             torch_dtype=torch.bfloat16,
@@ -168,9 +153,10 @@ def _load_model(base_model: str, training_mode: str) -> AutoModelForCausalLM:
     return model
 
 
-def _load_dataset(dataset_path: str, tokenizer: AutoTokenizer) -> dict:
-    ext = Path(dataset_path).suffix
+def _load_dataset(dataset_path: str, tokenizer) -> dict:
+    from datasets import load_dataset
 
+    ext = Path(dataset_path).suffix
     if ext == ".jsonl":
         ds = load_dataset("json", data_files=dataset_path)
     elif ext == ".csv":
@@ -178,7 +164,6 @@ def _load_dataset(dataset_path: str, tokenizer: AutoTokenizer) -> dict:
     else:
         ds = load_dataset(dataset_path)
 
-    # if no validation split exists, create one
     if "validation" not in ds:
         split = ds["train"].train_test_split(test_size=0.05, seed=42)
         ds = {"train": split["train"], "validation": split["test"]}
@@ -187,14 +172,8 @@ def _load_dataset(dataset_path: str, tokenizer: AutoTokenizer) -> dict:
     return ds
 
 
-def _build_training_args(
-    config: RunConfig,
-    checkpoint_dir: str,
-    dataset: dict,
-) -> TrainingArguments:
-    total_samples = len(dataset["train"])
-    steps_per_epoch = max(1, total_samples // (config.batch_size * config.gradient_accumulation))
-    total_steps = steps_per_epoch * config.epochs
+def _build_training_args(config: RunConfig, checkpoint_dir: str):
+    from transformers import TrainingArguments
 
     return TrainingArguments(
         output_dir=checkpoint_dir,
@@ -218,8 +197,8 @@ def _build_training_args(
         load_best_model_at_end=True,
         metric_for_best_model="eval_loss",
         greater_is_better=False,
-        report_to="none",           
+        report_to="none",
         dataloader_num_workers=4,
         remove_unused_columns=False,
-        group_by_length=True,       # speeds up training by grouping similar lengths
+        group_by_length=True,
     )

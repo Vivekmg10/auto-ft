@@ -63,7 +63,7 @@ class DataAgent(BaseAgent):
         self.tool_registry = {
             "deduplicate_dataset": deduplicate_dataset,
             "filter_by_length": filter_by_length,
-            "score_quality": score_quality,
+            # "score_quality": score_quality,
             "fix_formatting": fix_formatting,
             "convert_to_chat_template": convert_to_chat_template,
             "validate_schema": validate_schema,

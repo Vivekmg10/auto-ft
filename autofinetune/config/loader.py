@@ -1,8 +1,9 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings
 from pathlib import Path
 from typing import Literal
 import yaml
+import os
 
 
 class DatasetConfig(BaseModel):
@@ -14,6 +15,17 @@ class DatasetConfig(BaseModel):
 class BaseModelConfig(BaseModel):
     name: str = "Qwen/Qwen2.5-7B-Instruct"
     trust_remote_code: bool = True
+
+    @field_validator("name")
+    @classmethod
+    def validate_model_exists(cls, v: str) -> str:
+        # check local path first
+        if Path(v).exists():
+            return v
+        # check if it's a known hub model pattern (rough validation)
+        if "/" not in v:
+            raise ValueError(f"Invalid model name '{v}': expected format 'org/model'")
+        return v
 
 
 class HPRangeConfig(BaseModel):
@@ -130,9 +142,24 @@ def _validate_config(cfg: ExperimentConfig) -> None:
             errors.append("hyperparameter_space.lora_rank.values must not be empty")
         if not hp.scheduler.values:
             errors.append("hyperparameter_space.scheduler.values must not be empty")
+        if hasattr(hp, 'lora_alpha') and hp.lora_alpha and not hp.lora_alpha.values:
+            errors.append("hyperparameter_space.lora_alpha.values must not be empty")
+        if hasattr(hp, 'batch_size') and hp.batch_size and not hp.batch_size.values:
+            errors.append("hyperparameter_space.batch_size.values must not be empty")
+        if hasattr(hp, 'gradient_accumulation') and hp.gradient_accumulation and not hp.gradient_accumulation.values:
+            errors.append("hyperparameter_space.gradient_accumulation.values must not be empty")
+
+        # validate positive values for categorical HPs that should be positive
+        for field_name, field in [('lora_rank', hp.lora_rank), ('batch_size', hp.batch_size), ('gradient_accumulation', hp.gradient_accumulation)]:
+            if field and field.values:
+                if any(v <= 0 for v in field.values if isinstance(v, (int, float))):
+                    errors.append(f"hyperparameter_space.{field_name}.values must all be positive")
 
     if cfg.training.max_runs < 1:
         errors.append(f"training.max_runs must be >= 1, got {cfg.training.max_runs}")
+
+    if cfg.training.budget_hours <= 0:
+        errors.append(f"training.budget_hours must be > 0, got {cfg.training.budget_hours}")
 
     if errors:
         raise ValueError("Invalid config:\n" + "\n".join(f"  - {e}" for e in errors))

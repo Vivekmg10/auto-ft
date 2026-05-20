@@ -1,4 +1,4 @@
-import json
+﻿import json
 from pathlib import Path
 from datetime import datetime
 from textual.app import App, ComposeResult
@@ -106,7 +106,7 @@ class AutoFineTuneDashboard(App):
 
     #exp-title {
         text-style: bold;
-        font-size: 16;
+        
     }
 
     ProgressBar {
@@ -241,7 +241,7 @@ class AutoFineTuneDashboard(App):
         if not state_path.exists():
             return None
         try:
-            return json.loads(state_path.read_text())
+            return json.loads(state_path.read_text(encoding='utf-8'))
         except Exception:
             return None
 
@@ -250,7 +250,7 @@ class AutoFineTuneDashboard(App):
         if not lb_path.exists():
             return None
         try:
-            return json.loads(lb_path.read_text())
+            return json.loads(lb_path.read_text(encoding='utf-8'))
         except Exception:
             return None
 
@@ -262,7 +262,7 @@ class AutoFineTuneDashboard(App):
         if not entries:
             return None
         try:
-            return entries[-1].read_text()
+            return entries[-1].read_text(encoding='utf-8')
         except Exception:
             return None
 

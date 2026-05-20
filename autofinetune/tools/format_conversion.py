@@ -1,7 +1,6 @@
 import json
 from pathlib import Path
 from loguru import logger
-from transformers import AutoTokenizer
 from autofinetune.tools.data_cleaning import _load_jsonl, _save_jsonl
 
 
@@ -18,13 +17,15 @@ def convert_to_chat_template(
     """
     examples = _load_jsonl(dataset_path)
 
-    try:
-        tokenizer = AutoTokenizer.from_pretrained(
-            base_model,
-            trust_remote_code=True
-        )
-    except Exception as e:
-        return {"error": f"Failed to load tokenizer for {base_model}: {e}"}
+    manual_template = _get_manual_template(base_model)
+    tokenizer = None
+
+    if manual_template is None:
+        try:
+            from transformers import AutoTokenizer
+            tokenizer = AutoTokenizer.from_pretrained(base_model, trust_remote_code=True)
+        except Exception as e:
+            return {"error": f"Failed to load tokenizer for {base_model}: {e}"}
 
     converted = []
     failed = 0
@@ -32,11 +33,14 @@ def convert_to_chat_template(
     for example in examples:
         try:
             messages = _to_messages(example, input_format, system_prompt)
-            text = tokenizer.apply_chat_template(
-                messages,
-                tokenize=False,
-                add_generation_prompt=False,
-            )
+            if manual_template is not None:
+                text = manual_template(messages)
+            else:
+                text = tokenizer.apply_chat_template(
+                    messages,
+                    tokenize=False,
+                    add_generation_prompt=False,
+                )
             converted.append({
                 "text": text,
                 "messages": messages,
@@ -209,6 +213,56 @@ def _normalize_role(role: str) -> str:
     if role in ("system", "sys"):
         return "system"
     return role
+
+
+def _get_manual_template(base_model: str):
+    """
+    Returns a callable(messages) -> str for known model families, avoiding
+    the need to load transformers/torch. Returns None for unknown models.
+    """
+    model_lower = base_model.lower()
+
+    if "qwen" in model_lower:
+        def _chatml(messages):
+            parts = []
+            for m in messages:
+                parts.append(f"<|im_start|>{m['role']}\n{m['content']}<|im_end|>")
+            parts.append("<|im_start|>assistant\n")
+            return "\n".join(parts)
+        return _chatml
+
+    if "llama" in model_lower:
+        def _llama3(messages):
+            parts = ["<|begin_of_text|>"]
+            for m in messages:
+                parts.append(f"<|start_header_id|>{m['role']}<|end_header_id|>\n\n{m['content']}<|eot_id|>")
+            parts.append("<|start_header_id|>assistant<|end_header_id|>\n\n")
+            return "".join(parts)
+        return _llama3
+
+    if "mistral" in model_lower:
+        def _mistral(messages):
+            parts = []
+            for m in messages:
+                if m["role"] == "user":
+                    parts.append(f"[INST] {m['content']} [/INST]")
+                elif m["role"] == "assistant":
+                    parts.append(f"{m['content']}</s>")
+            return " ".join(parts)
+        return _mistral
+
+    if "gemma" in model_lower:
+        def _gemma(messages):
+            role_map = {"user": "user", "assistant": "model", "system": "user"}
+            parts = []
+            for m in messages:
+                role = role_map.get(m["role"], m["role"])
+                parts.append(f"<start_of_turn>{role}\n{m['content']}<end_of_turn>")
+            parts.append("<start_of_turn>model\n")
+            return "\n".join(parts)
+        return _gemma
+
+    return None
 
 
 def _detect_template(base_model: str) -> str:

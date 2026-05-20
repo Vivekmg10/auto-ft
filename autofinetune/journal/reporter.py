@@ -1,4 +1,4 @@
-import json
+﻿import json
 from pathlib import Path
 from datetime import datetime
 from loguru import logger
@@ -463,7 +463,7 @@ and what the next step should be. Keep it to 3-4 sentences.
         if not path.exists():
             return []
         try:
-            return json.loads(path.read_text())
+            return json.loads(path.read_text(encoding='utf-8'))
         except Exception:
             return []
 
@@ -484,14 +484,14 @@ and what the next step should be. Keep it to 3-4 sentences.
                 if not results_path.exists():
                     continue
 
-                run = json.loads(results_path.read_text())
+                run = json.loads(results_path.read_text(encoding='utf-8'))
 
                 if config_path.exists():
-                    run["config"] = json.loads(config_path.read_text())
+                    run["config"] = json.loads(config_path.read_text(encoding='utf-8'))
 
                 if hypothesis_path.exists():
                     run["hypothesis"] = json.loads(
-                        hypothesis_path.read_text()
+                        hypothesis_path.read_text(encoding='utf-8')
                     ).get("hypothesis", "")
 
                 runs.append(run)
@@ -508,7 +508,7 @@ and what the next step should be. Keep it to 3-4 sentences.
         entries = []
         for path in sorted(journal_dir.glob("run_*.md")):
             try:
-                entries.append(path.read_text())
+                entries.append(path.read_text(encoding='utf-8'))
             except Exception:
                 continue
 
@@ -519,6 +519,6 @@ and what the next step should be. Keep it to 3-4 sentences.
         if not state_path.exists():
             return None
         try:
-            return json.loads(state_path.read_text())
+            return json.loads(state_path.read_text(encoding='utf-8'))
         except Exception:
             return None

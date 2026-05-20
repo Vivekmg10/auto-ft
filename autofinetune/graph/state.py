@@ -44,6 +44,7 @@ class ExperimentState(BaseModel):
         "planning",
         "training",
         "evaluating",
+        "update",
         "complete",
         "failed"
     ] = "init"

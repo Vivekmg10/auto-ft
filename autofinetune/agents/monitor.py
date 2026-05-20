@@ -112,15 +112,12 @@ class TrainingMonitor(BaseAgent):
         Simple early stopping logic.
         LLM is only called for anomaly detection, not for this decision.
         """
-        if len(loss_curve) < 5:
-            return False
-
         eval_losses = [
             s["eval_loss"] for s in loss_curve
-            if "eval_loss" in s
+            if "eval_loss" in s and s["eval_loss"] is not None
         ]
 
-        if not eval_losses:
+        if len(eval_losses) < 3:
             return False
 
         # NaN/Inf means training is broken — stop immediately

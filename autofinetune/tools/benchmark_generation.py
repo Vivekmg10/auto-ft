@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 from loguru import logger
 from litellm import completion
 from autofinetune.tools.data_cleaning import _load_jsonl, _save_jsonl
@@ -157,7 +156,7 @@ No explanation, just the array.
 """
     try:
         response = completion(
-            model="groq/llama-3.1-70b-versatile",
+            model="deepseek/deepseek-v4-flash",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
         )
@@ -211,7 +210,7 @@ Return ONLY a valid JSON array. No explanation.
 
     try:
         response = completion(
-            model="groq/llama-3.1-70b-versatile",
+            model="deepseek/deepseek-v4-flash",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7,
             max_tokens=4000,

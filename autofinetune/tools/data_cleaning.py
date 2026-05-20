@@ -140,23 +140,36 @@ def filter_by_length(
     return result
 
 
+_DEFAULT_SCORING_MODEL = "deepseek/deepseek-v4-flash"
+
+
+_MAX_SCORING_SAMPLE = 1000
+
+
 def score_quality(
     dataset_path: str,
     output_path: str,
     use_case: str,
     threshold: float = 0.6,
-    sample_size: int = -1,
+    sample_size: int = 500,
+    scoring_model: str | None = None,
 ) -> dict:
     """
     Uses LLM to score example quality. Filters below threshold.
-    Scores a sample if dataset is large.
+    Always scores a sample — unscored examples pass through unfiltered.
     """
+    import random
     examples = _load_jsonl(dataset_path)
 
-    if sample_size > 0 and len(examples) > sample_size:
-        import random
-        to_score = random.sample(examples, sample_size)
-        unscored = [e for e in examples if e not in to_score]
+    effective_sample = min(
+        _MAX_SCORING_SAMPLE,
+        sample_size if sample_size > 0 else _MAX_SCORING_SAMPLE,
+    )
+
+    if len(examples) > effective_sample:
+        to_score = random.sample(examples, effective_sample)
+        scored_set = {id(e) for e in to_score}
+        unscored = [e for e in examples if id(e) not in scored_set]
     else:
         to_score = examples
         unscored = []
@@ -166,7 +179,7 @@ def score_quality(
 
     for i in range(0, len(to_score), batch_size):
         batch = to_score[i:i + batch_size]
-        scores = _score_batch(batch, use_case)
+        scores = _score_batch(batch, use_case, scoring_model)
         for example, score in zip(batch, scores):
             if score >= threshold:
                 scored.append(example)
@@ -269,36 +282,67 @@ def _detect_format(example: dict) -> str:
 
 def _fuzzy_dedup(examples: list[dict], threshold: float) -> tuple[list[dict], int]:
     """
-    Simple shingling-based fuzzy dedup.
+    MinHash LSH fuzzy dedup. O(n) average — safe for large datasets.
     """
-    def shingles(text: str, k: int = 5) -> set:
-        return {text[i:i+k] for i in range(len(text) - k + 1)}
+    import hashlib
+    from collections import defaultdict
+    import numpy as np
 
-    def jaccard(a: set, b: set) -> float:
-        if not a or not b:
-            return 0.0
-        return len(a & b) / len(a | b)
+    NUM_HASHES = 128
+    NUM_BANDS = 16
+    ROWS = NUM_HASHES // NUM_BANDS  # 8
+    SHINGLE_K = 5
+    P = (1 << 31) - 1  # Mersenne prime
+
+    rng = np.random.RandomState(42)
+    a = rng.randint(1, P, size=NUM_HASHES, dtype=np.int64)
+    b = rng.randint(0, P, size=NUM_HASHES, dtype=np.int64)
+
+    def shingle_hashes(text: str) -> np.ndarray:
+        raw = [
+            int(hashlib.md5(text[i:i + SHINGLE_K].encode()).hexdigest()[:8], 16) & 0x7FFFFFFF
+            for i in range(max(0, len(text) - SHINGLE_K + 1))
+        ]
+        return np.unique(np.array(raw, dtype=np.int64)) if raw else np.array([0], dtype=np.int64)
+
+    def minhash(hashes: np.ndarray) -> np.ndarray:
+        return ((a[:, None] * hashes[None, :] + b[:, None]) % P).min(axis=1)
 
     texts = [json.dumps(e, sort_keys=True) for e in examples]
-    shingle_sets = [shingles(t) for t in texts]
+    sigs = [minhash(shingle_hashes(t)) for t in texts]
 
     keep = [True] * len(examples)
     removed = 0
+    checked: set[tuple[int, int]] = set()
 
-    for i in range(len(examples)):
-        if not keep[i]:
-            continue
-        for j in range(i + 1, len(examples)):
-            if not keep[j]:
+    for band in range(NUM_BANDS):
+        s, e = band * ROWS, (band + 1) * ROWS
+        buckets: dict[tuple, list[int]] = defaultdict(list)
+        for i, sig in enumerate(sigs):
+            buckets[tuple(sig[s:e].tolist())].append(i)
+
+        for members in buckets.values():
+            if len(members) < 2:
                 continue
-            if jaccard(shingle_sets[i], shingle_sets[j]) >= threshold:
-                keep[j] = False
-                removed += 1
+            for x in range(len(members)):
+                i = members[x]
+                if not keep[i]:
+                    continue
+                for y in range(x + 1, len(members)):
+                    j = members[y]
+                    if not keep[j]:
+                        continue
+                    if (i, j) in checked:
+                        continue
+                    checked.add((i, j))
+                    if float(np.mean(sigs[i] == sigs[j])) >= threshold:
+                        keep[j] = False
+                        removed += 1
 
     return [e for e, k in zip(examples, keep) if k], removed
 
 
-def _score_batch(examples: list[dict], use_case: str) -> list[float]:
+def _score_batch(examples: list[dict], use_case: str, scoring_model: str | None = None) -> list[float]:
     """
     Scores a batch of examples for quality using LLM.
     Returns list of scores 0-1.
@@ -327,7 +371,7 @@ No explanation, just the array.
 
     try:
         response = completion(
-            model="groq/llama-3.1-8b-instant",   # cheap model for bulk scoring
+            model=scoring_model or _DEFAULT_SCORING_MODEL,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.0,
         )

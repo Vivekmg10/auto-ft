@@ -56,6 +56,7 @@ def skip_eval_if_failed(state: ExperimentState) -> str:
 def _is_converged(state: ExperimentState, window: int = 5, threshold: float = 0.005) -> bool:
     """
     Check if the last N completed runs show no meaningful improvement.
+    Uses linear regression slope to detect true plateau vs noise.
     """
     completed = [r for r in state.all_runs if r.status == "completed" and r.eval_score]
 
@@ -63,6 +64,23 @@ def _is_converged(state: ExperimentState, window: int = 5, threshold: float = 0.
         return False
 
     recent = [r.eval_score for r in completed[-window:]]
-    improvement = max(recent) - min(recent)
 
-    return improvement < threshold
+    # compute simple linear slope
+    n = len(recent)
+    if n < 2:
+        return False
+
+    x = list(range(n))
+    mean_x = sum(x) / n
+    mean_y = sum(recent) / n
+
+    numerator = sum((x[i] - mean_x) * (recent[i] - mean_y) for i in range(n))
+    denominator = sum((x[i] - mean_x) ** 2 for i in range(n))
+
+    if denominator == 0:
+        return False
+
+    slope = numerator / denominator
+
+    # converged if slope is near zero (no improvement trend)
+    return abs(slope) < threshold

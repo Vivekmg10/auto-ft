@@ -1,4 +1,4 @@
-from pathlib import Path
+﻿from pathlib import Path
 from datetime import datetime
 import json
 import shutil
@@ -28,7 +28,7 @@ class LocalStorage:
     def save_state(self, state: ExperimentState):
         path = self.experiment_dir(state.experiment_id) / "state.json"
         try:
-            path.write_text(state.model_dump_json(indent=2))
+            path.write_text(state.model_dump_json(indent=2), encoding='utf-8')
         except OSError as e:
             logger.error(f"Failed to save state for {state.experiment_id}: {e}")
             raise
@@ -38,7 +38,10 @@ class LocalStorage:
         if not path.exists():
             return None
         try:
-            return ExperimentState.model_validate_json(path.read_text())
+            text = path.read_text(encoding='utf-8').strip()
+            if not text:
+                return None
+            return ExperimentState.model_validate_json(text)
         except (OSError, ValueError) as e:
             logger.error(f"Failed to load state for {experiment_id}: {e}")
             return None
@@ -48,7 +51,7 @@ class LocalStorage:
         try:
             run_path.mkdir(parents=True, exist_ok=True)
             (run_path / "config.json").write_text(
-                json.dumps(run.config.model_dump(), indent=2)
+                json.dumps(run.config.model_dump(), indent=2), encoding='utf-8'
             )
             (run_path / "results.json").write_text(
                 json.dumps({
@@ -57,13 +60,13 @@ class LocalStorage:
                     "eval_breakdown": run.eval_breakdown,
                     "status": run.status,
                     "training_report": run.training_report
-                }, indent=2)
+                }, indent=2), encoding='utf-8'
             )
             (run_path / "hypothesis.json").write_text(
-                json.dumps({"hypothesis": run.hypothesis}, indent=2)
+                json.dumps({"hypothesis": run.hypothesis}, indent=2), encoding='utf-8'
             )
             (run_path / "loss_curve.json").write_text(
-                json.dumps(run.loss_curve, indent=2)
+                json.dumps(run.loss_curve, indent=2), encoding='utf-8'
             )
         except OSError as e:
             logger.error(f"Failed to save run {run.run_id}: {e}")
@@ -86,7 +89,7 @@ class LocalStorage:
 
         path = self.experiment_dir(experiment_id) / "leaderboard.json"
         try:
-            path.write_text(json.dumps(leaderboard, indent=2))
+            path.write_text(json.dumps(leaderboard, indent=2), encoding='utf-8')
         except OSError as e:
             logger.error(f"Failed to update leaderboard for {experiment_id}: {e}")
             raise
@@ -94,7 +97,7 @@ class LocalStorage:
     def save_journal_entry(self, experiment_id: str, run_id: str, entry: str):
         path = self.experiment_dir(experiment_id) / "journal" / f"{run_id}.md"
         try:
-            path.write_text(entry)
+            path.write_text(entry, encoding='utf-8')
         except OSError as e:
             logger.error(f"Failed to save journal entry for run {run_id}: {e}")
             raise
@@ -102,7 +105,7 @@ class LocalStorage:
     def save_summary(self, experiment_id: str, summary: str):
         path = self.experiment_dir(experiment_id) / "journal" / "summary.md"
         try:
-            path.write_text(summary)
+            path.write_text(summary, encoding='utf-8')
         except OSError as e:
             logger.error(f"Failed to save summary for {experiment_id}: {e}")
             raise
@@ -110,7 +113,7 @@ class LocalStorage:
     def save_report(self, experiment_id: str, report: str):
         path = self.experiment_dir(experiment_id) / "report.md"
         try:
-            path.write_text(report)
+            path.write_text(report, encoding='utf-8')
         except OSError as e:
             logger.error(f"Failed to save report for {experiment_id}: {e}")
             raise

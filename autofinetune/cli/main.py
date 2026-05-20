@@ -1,3 +1,8 @@
+﻿from dotenv import load_dotenv
+load_dotenv()
+
+import datasets  # must load before transformers to avoid pyarrow DLL conflict on Windows
+
 import typer
 from pathlib import Path
 from rich.console import Console
@@ -106,7 +111,7 @@ def run(
             stream_mode="updates",
         ):
             node_name = list(event.keys())[0]
-            rprint(f"[dim]→ {node_name}[/dim]")
+            rprint(f"[dim]-> {node_name}[/dim]")
 
             # save state after every node using in-memory state to avoid stale disk reads
             updated = event[node_name]
@@ -191,7 +196,7 @@ def report(
 
     # serve existing report unless --regenerate
     if report_path.exists() and not regenerate:
-        rprint(report_path.read_text())
+        rprint(report_path.read_text(encoding='utf-8'))
         return
 
     # load config to get model + use case
@@ -253,13 +258,13 @@ def logs(
     if run_id:
         entry_path = journal_dir / f"{run_id}.md"
         if entry_path.exists():
-            rprint(entry_path.read_text())
+            rprint(entry_path.read_text(encoding='utf-8'))
         else:
             rprint(f"[red]No journal entry for run {run_id}[/red]")
     else:
         entries = sorted(journal_dir.glob("run_*.md"))
         for entry in entries:
-            rprint(entry.read_text())
+            rprint(entry.read_text(encoding='utf-8'))
             rprint("\n" + "─" * 60 + "\n")
 
 

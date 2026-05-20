@@ -130,6 +130,6 @@ def create_initial_state(config: ExperimentConfig) -> ExperimentState:
     """
     return ExperimentState(
         experiment_id=config.id,
-        use_case=config.experiment.use_case if hasattr(config, 'experiment') else config.use_case,
+        use_case=config.use_case,
         max_runs=config.training.max_runs,
     )

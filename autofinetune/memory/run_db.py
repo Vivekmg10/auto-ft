@@ -1,4 +1,4 @@
-import json
+﻿import json
 from pathlib import Path
 from loguru import logger
 from autofinetune.graph.state import RunResult, ExperimentState
@@ -43,7 +43,7 @@ class RunDatabase:
         if not self.leaderboard_path.exists():
             return []
         try:
-            return json.loads(self.leaderboard_path.read_text())
+            return json.loads(self.leaderboard_path.read_text(encoding='utf-8'))
         except (json.JSONDecodeError, OSError) as e:
             logger.warning(f"Failed to load leaderboard: {e}")
             return []
@@ -105,19 +105,19 @@ class RunDatabase:
             if not results_path.exists():
                 return None
 
-            results = json.loads(results_path.read_text())
+            results = json.loads(results_path.read_text(encoding='utf-8'))
 
             config = {}
             if config_path.exists():
-                config = json.loads(config_path.read_text())
+                config = json.loads(config_path.read_text(encoding='utf-8'))
 
             hypothesis = ""
             if hypothesis_path.exists():
-                hypothesis = json.loads(hypothesis_path.read_text()).get("hypothesis", "")
+                hypothesis = json.loads(hypothesis_path.read_text(encoding='utf-8')).get("hypothesis", "")
 
             loss_curve = []
             if loss_curve_path.exists():
-                loss_curve = json.loads(loss_curve_path.read_text())
+                loss_curve = json.loads(loss_curve_path.read_text(encoding='utf-8'))
 
             from autofinetune.graph.state import RunConfig
             return RunResult(

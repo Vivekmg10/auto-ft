@@ -83,41 +83,41 @@ DATA_TOOLS = [
             }
         }
     },
-    {
-        "type": "function",
-        "function": {
-            "name": "score_quality",
-            "description": "Score each example for quality using an LLM judge. Filters below threshold.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "dataset_path": {
-                        "type": "string",
-                        "description": "Path to input dataset JSONL"
-                    },
-                    "output_path": {
-                        "type": "string",
-                        "description": "Path to save quality-filtered dataset"
-                    },
-                    "use_case": {
-                        "type": "string",
-                        "description": "Description of the task — used to judge relevance"
-                    },
-                    "threshold": {
-                        "type": "number",
-                        "description": "Minimum quality score 0-1 to keep. Default 0.6",
-                        "default": 0.6
-                    },
-                    "sample_size": {
-                        "type": "integer",
-                        "description": "Only score a sample for speed. -1 means score all.",
-                        "default": -1
-                    }
-                },
-                "required": ["dataset_path", "output_path", "use_case"]
-            }
-        }
-    },
+    # {
+    #     "type": "function",
+    #     "function": {
+    #         "name": "score_quality",
+    #         "description": "Score each example for quality using an LLM judge. Filters below threshold.",
+    #         "parameters": {
+    #             "type": "object",
+    #             "properties": {
+    #                 "dataset_path": {
+    #                     "type": "string",
+    #                     "description": "Path to input dataset JSONL"
+    #                 },
+    #                 "output_path": {
+    #                     "type": "string",
+    #                     "description": "Path to save quality-filtered dataset"
+    #                 },
+    #                 "use_case": {
+    #                     "type": "string",
+    #                     "description": "Description of the task — used to judge relevance"
+    #                 },
+    #                 "threshold": {
+    #                     "type": "number",
+    #                     "description": "Minimum quality score 0-1 to keep. Default 0.6",
+    #                     "default": 0.6
+    #                 },
+    #                 "sample_size": {
+    #                     "type": "integer",
+    #                     "description": "Only score a random sample for speed. Unscored examples pass through. Default 500, max 1000.",
+    #                     "default": 500
+    #                 }
+    #             },
+    #             "required": ["dataset_path", "output_path", "use_case"]
+    #         }
+    #     }
+    # },
     {
         "type": "function",
         "function": {

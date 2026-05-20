@@ -74,7 +74,7 @@ def planning_node(state: ExperimentState, config: ExperimentConfig, strategist, 
             "max_runs": state.max_runs,
             "budget_remaining": state.max_runs - state.current_run,
             "hours_used": state.total_hours_used,
-            "hp_space": config.hyperparameter_space,
+            "hp_space": config.hyperparameter_space.model_dump() if config.hyperparameter_space else None,
             "lessons_learned": state.lessons_learned,
             "training_mode": config.training.mode,
         }
